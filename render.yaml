@@ -1,0 +1,9 @@
+services:
+- type: web
+  name: telegram-bot
+  env: python
+  buildCommand: pip install -r requirements.txt
+  startCommand: python bot.py
+  envVars:
+  - key: TELEGRAM_TOKEN
+    fromShell: echo 6952359179:AAFhuz_Ry06UNoVn4VmYn8xiMrtscEYrZ6g
