@@ -26,6 +26,9 @@
             background: #4a90e2;
             color: white;
             border-radius: 10px 10px 0 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
         .chat-messages {
             flex: 1;
@@ -45,6 +48,10 @@
         }
         .bot-message {
             background: #f0f0f0;
+        }
+        .error-message {
+            background: #ffe6e6;
+            color: #d63031;
         }
         .input-container {
             padding: 20px;
@@ -70,27 +77,41 @@
         button:hover {
             background: #357abd;
         }
+        button:disabled {
+            background: #cccccc;
+            cursor: not-allowed;
+        }
+        .status {
+            font-size: 0.8em;
+            color: #666;
+        }
     </style>
 </head>
 <body>
     <div class="chat-container">
         <div class="chat-header">
             <h2>Local Language Chatbot</h2>
+            <button onclick="resetChat()" id="resetButton">Reset Chat</button>
         </div>
         <div class="chat-messages" id="chatMessages"></div>
         <div class="input-container">
             <input type="text" id="messageInput" placeholder="Type your message...">
-            <button onclick="sendMessage()">Send</button>
+            <button onclick="sendMessage()" id="sendButton">Send</button>
         </div>
     </div>
 
     <script>
         const chatMessages = document.getElementById('chatMessages');
         const messageInput = document.getElementById('messageInput');
+        const sendButton = document.getElementById('sendButton');
+        const resetButton = document.getElementById('resetButton');
+        
+        let sessionId = Date.now().toString();
+        let isProcessing = false;
 
-        function addMessage(message, isUser) {
+        function addMessage(message, type) {
             const messageDiv = document.createElement('div');
-            messageDiv.className = `message ${isUser ? 'user-message' : 'bot-message'}`;
+            messageDiv.className = `message ${type}-message`;
             messageDiv.textContent = message;
             chatMessages.appendChild(messageDiv);
             chatMessages.scrollTop = chatMessages.scrollHeight;
@@ -98,29 +119,52 @@
 
         async function sendMessage() {
             const message = messageInput.value.trim();
-            if (!message) return;
+            if (!message || isProcessing) return;
 
-            addMessage(message, true);
+            isProcessing = true;
+            sendButton.disabled = true;
+            messageInput.disabled = true;
+
+            addMessage(message, 'user');
             messageInput.value = '';
 
             try {
                 const response = await fetch('/chat', {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json'
+                        'Content-Type': 'application/json',
+                        'Session-Id': sessionId
                     },
                     body: JSON.stringify({ message })
                 });
 
                 const data = await response.json();
-                addMessage(data.response, false);
+                
+                if (data.error) {
+                    addMessage('Bot encountered an error. Starting new session...', 'error');
+                    sessionId = Date.now().toString();
+                } else {
+                    addMessage(data.response, 'bot');
+                }
             } catch (error) {
-                addMessage('Error connecting to server', false);
+                addMessage('Connection error. Please try again.', 'error');
+                sessionId = Date.now().toString();
+            } finally {
+                isProcessing = false;
+                sendButton.disabled = false;
+                messageInput.disabled = false;
+                messageInput.focus();
             }
         }
 
+        function resetChat() {
+            sessionId = Date.now().toString();
+            chatMessages.innerHTML = '';
+            addMessage('Chat session reset. You can start a new conversation.', 'bot');
+        }
+
         messageInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
+            if (e.key === 'Enter' && !isProcessing) {
                 sendMessage();
             }
         });
